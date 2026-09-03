@@ -1,0 +1,8 @@
+.venv/
+__pycache__/
+*.py[cod]
+.DS_Store
+.env
+config/evf.env
+vendor/Python_ST7735/
+*.log

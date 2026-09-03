@@ -1,0 +1,18 @@
+[Unit]
+Description=Pi 5 ST7735 HDMI/CSI-2 EVF
+After=multi-user.target
+Wants=multi-user.target
+
+[Service]
+Type=simple
+User=pi
+Group=pi
+WorkingDirectory=/home/pi/pi5-st7735-evf
+EnvironmentFile=-/home/pi/pi5-st7735-evf/config/evf.env
+ExecStart=/home/pi/pi5-st7735-evf/.venv/bin/python /home/pi/pi5-st7735-evf/evf.py
+Restart=always
+RestartSec=2
+Nice=-5
+
+[Install]
+WantedBy=multi-user.target
