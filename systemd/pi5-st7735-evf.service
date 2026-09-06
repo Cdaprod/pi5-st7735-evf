@@ -1,7 +1,7 @@
 [Unit]
 Description=Pi 5 ST7735 HDMI/CSI-2 EVF
-After=multi-user.target
-Wants=multi-user.target
+After=multi-user.target x1301-hdmi-watch.service
+Wants=x1301-hdmi-watch.service
 
 [Service]
 Type=simple
