@@ -17,8 +17,13 @@ def main() -> int:
     parser.add_argument("--output", type=Path, default=Path(tempfile.gettempdir()) / "x1301-state.env")
     args = parser.parse_args()
     configured = args.state == "locked" and bool(args.video)
-    content = (f"signal_state={args.state.upper().replace('-', '_')}\nvideo_node={args.video}\n"
-               f"width={args.width}\nheight={args.height}\nfps={args.fps}\nconfigured={int(configured)}\n")
+    mode_id = f"{args.width}x{args.height}@{args.fps}/0Hz/RGB3" if configured else ""
+    content = ("X1301_STATUS_SCHEMA=1\n"
+               f"X1301_SIGNAL_STATE={args.state.upper().replace('-', '_')}\n"
+               f"X1301_VIDEO={args.video}\nX1301_WIDTH={args.width}\n"
+               f"X1301_HEIGHT={args.height}\nX1301_FPS={args.fps}\n"
+               f"X1301_CONFIGURED={int(configured)}\nX1301_PIXELFORMAT=RGB3\n"
+               f"X1301_MODE_ID='{mode_id}'\nX1301_MODE_GENERATION={int(configured)}\n")
     try:
         args.output.parent.mkdir(parents=True, exist_ok=True); args.output.write_text(content)
         print(args.output); return 0

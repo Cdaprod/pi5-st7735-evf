@@ -2,7 +2,7 @@
 import cv2
 import numpy as np
 from PIL import Image,ImageDraw
-from ...render import resize_crop
+from ...render import to_evf_frame
 from ...overlays import apply_focus_peaking,apply_zebra
 from ..icons import draw_icon
 from ..layout import layout_for
@@ -15,9 +15,11 @@ def sample_frame(width=160,height=90):
 def _histogram(d,frame,box):
     x0,y0,x1,y1=box; d.rectangle(box,fill=BLACK,outline=DARK_GRAY); gray=cv2.cvtColor(frame,cv2.COLOR_BGR2GRAY); hist=cv2.calcHist([gray],[0],None,[22],[0,256]).ravel(); hist/=max(hist.max(),1)
     pts=[(x0+i*2,y1-1-int(v*(y1-y0-2))) for i,v in enumerate(hist)]; d.line(pts,fill=WHITE,width=1)
-def live_view_screen(width=128,height=128,frame=None,focus=False,zebra=False,crosshair=True,fps=60.0,mode="1080p60",**_):
+def live_view_screen(width=128,height=128,frame=None,focus=False,zebra=False,crosshair=True,
+                     fps=60.0,mode="1080p60",resize_mode="crop",rotation=0,
+                     peaking_threshold=80,zebra_threshold=242,**_):
     lay=layout_for(width,height); frame=sample_frame() if frame is None else frame; vh=height-lay.top_bar_height-lay.bottom_bar_height
-    view=resize_crop(frame,width,vh); view=apply_focus_peaking(view,80,thickness=1) if focus else view; view=apply_zebra(view,242) if zebra else view
+    view=to_evf_frame(frame,width,vh,resize_mode,rotation); view=apply_focus_peaking(view,peaking_threshold,thickness=1) if focus else view; view=apply_zebra(view,zebra_threshold) if zebra else view
     im=Image.new("RGB",(width,height),BLACK); im.paste(Image.fromarray(cv2.cvtColor(view,cv2.COLOR_BGR2RGB)),(0,lay.top_bar_height)); d=ImageDraw.Draw(im)
     d.rectangle((0,0,width-1,15),fill=BLACK); draw_icon(d,"camera",(4,4,16,13)); d.text((width//2,3),mode,font=FONT_SMALL,fill=WHITE,anchor="ma"); draw_icon(d,"signal",(96,4,106,14)); draw_icon(d,"battery",(112,3,123,14))
     x0,y0,x1,y1=lay.viewport; n=lay.corner_guide_length

@@ -19,8 +19,13 @@ class SignalState(str, Enum):
         return aliases.get(normalized, cls.__members__.get(normalized, cls.ERROR))
 
 
-def _value(data: Mapping[str, Any], name: str, default: Any = None) -> Any:
-    return data.get(name, data.get(name.upper(), default))
+def _value(data: Mapping[str, Any], *names: str, default: Any = None) -> Any:
+    """Read JSON, legacy env, or canonical X1301-prefixed env names."""
+    for name in names:
+        for candidate in (name, name.upper(), f"X1301_{name.upper()}"):
+            if candidate in data:
+                return data[candidate]
+    return default
 
 
 def _integer(value: object) -> int:
@@ -53,9 +58,22 @@ class X1301State:
     fps: float = 0.0
     configured: bool = False
     error: str | None = None
-    pixel_clock_mhz: float = 0.0
+    power_present: bool = False
+    timings_locked: bool = False
+    audio_present: bool = False
+    audio_sampling_rate: int = 0
+    pixel_clock_hz: int = 0
+    pixel_format: str | None = None
+    mode_id: str | None = None
+    mode_generation: int = 0
     driver: str | None = None
     rp1_cfe_detected: bool = False
+    last_change: str | None = None
+
+    @property
+    def pixel_clock_mhz(self) -> float:
+        """Pixel clock normalized for UI presentation; the contract is Hz."""
+        return self.pixel_clock_hz / 1_000_000.0
 
     @property
     def ready(self) -> bool:
@@ -63,15 +81,27 @@ class X1301State:
 
     @classmethod
     def from_mapping(cls, data: Mapping[str, Any]) -> "X1301State":
+        pixel_clock_hz = _integer(_value(data, "pixelclock_hz", "pixel_clock_hz"))
+        if not pixel_clock_hz:
+            # Compatibility with the old EVF-specific MHz field only.
+            pixel_clock_hz = int(_float(_value(data, "pixel_clock_mhz")) * 1_000_000)
         return cls(
-            signal_state=SignalState.parse(_value(data, "signal_state", _value(data, "state"))),
-            video_node=_value(data, "video_node", _value(data, "video")) or None,
-            media_node=_value(data, "media_node", _value(data, "media")) or None,
-            subdev_node=_value(data, "subdev_node", _value(data, "subdev")) or None,
+            signal_state=SignalState.parse(_value(data, "signal_state", "state")),
+            video_node=_value(data, "video", "video_node") or None,
+            media_node=_value(data, "media", "media_node") or None,
+            subdev_node=_value(data, "subdev", "subdev_node") or None,
             width=_integer(_value(data, "width")), height=_integer(_value(data, "height")),
             fps=_float(_value(data, "fps")), configured=_bool(_value(data, "configured")),
             error=_value(data, "error") or None,
-            pixel_clock_mhz=_float(_value(data, "pixel_clock_mhz", _value(data, "pixel_clock"))),
+            power_present=_bool(_value(data, "power_present")),
+            timings_locked=_bool(_value(data, "timings_locked")),
+            audio_present=_bool(_value(data, "audio_present")),
+            audio_sampling_rate=_integer(_value(data, "audio_sampling_rate")),
+            pixel_clock_hz=pixel_clock_hz,
+            pixel_format=_value(data, "pixelformat", "pixel_format") or None,
+            mode_id=_value(data, "mode_id") or None,
+            mode_generation=_integer(_value(data, "mode_generation")),
             driver=_value(data, "driver") or None,
-            rp1_cfe_detected=_bool(_value(data, "rp1_cfe_detected", _value(data, "rp1_cfe"))),
+            rp1_cfe_detected=_bool(_value(data, "rp1_cfe_detected", "rp1_cfe")),
+            last_change=_value(data, "last_change") or None,
         )

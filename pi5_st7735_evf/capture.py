@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from pathlib import Path
 import glob
 import time
 from typing import Optional
@@ -97,32 +96,43 @@ class V4L2Capture:
 class CaptureController:
     """Keeps capture lifetime synchronized with the X1301 state contract."""
 
-    def __init__(self, factory=V4L2Capture, fourcc: str = "") -> None:
+    def __init__(self, factory=V4L2Capture, fourcc: str = "", reconnect_delay: float = 1.0,
+                 clock=time.monotonic) -> None:
         self.factory = factory
         self.fourcc = fourcc
         self.capture = None
         self.key: tuple | None = None
+        self.reconnect_delay = max(0.0, reconnect_delay)
+        self._clock = clock
+        self._retry_key: tuple | None = None
+        self._retry_at = 0.0
 
     @property
     def streaming(self) -> bool:
         return self.capture is not None
 
     def sync(self, state) -> bool:
-        desired = (state.video_node, state.width, state.height, state.fps)
+        desired = (state.video_node, state.width, state.height, state.fps,
+                   state.pixel_format, state.mode_id, state.mode_generation)
         if not state.ready:
             self.close()
+            self._retry_key = None
             return False
         if self.capture is not None and desired == self.key:
             return True
-        self.close()
+        self._close_capture()
+        if desired == self._retry_key and self._clock() < self._retry_at:
+            return False
         candidate = self.factory(state.video_node, state.width or 1920, state.height or 1080,
-                                 state.fps or 30.0, self.fourcc)
+                                 state.fps or 30.0, self.fourcc or state.pixel_format or "")
         try:
             candidate.open()
         except Exception:
             candidate.close()
+            self._schedule_retry(desired)
             return False
         self.capture, self.key = candidate, desired
+        self._retry_key = None
         return True
 
     def read(self):
@@ -130,12 +140,23 @@ class CaptureController:
             return False, None
         ok, frame = self.capture.read()
         if not ok or frame is None:
-            self.close()
+            failed_key = self.key
+            self._close_capture()
+            self._schedule_retry(failed_key)
             return False, None
         return True, frame
 
     def close(self) -> None:
+        self._close_capture()
+        self._retry_key = None
+        self._retry_at = 0.0
+
+    def _close_capture(self) -> None:
         if self.capture is not None:
             self.capture.close()
         self.capture = None
         self.key = None
+
+    def _schedule_retry(self, key: tuple | None) -> None:
+        self._retry_key = key
+        self._retry_at = self._clock() + self.reconnect_delay

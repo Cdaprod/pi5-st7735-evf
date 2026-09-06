@@ -4,14 +4,14 @@ from __future__ import annotations
 
 import sys
 import time
+from dataclasses import replace
 import cv2
 import numpy as np
 
 from pi5_st7735_evf.capture import CaptureController, list_video_devices
 from pi5_st7735_evf.config import build_parser, from_args
 from pi5_st7735_evf.display import MockDisplayBackend, ST7735Backend
-from pi5_st7735_evf.overlays import FpsMeter, apply_focus_peaking, apply_zebra, compose_overlays
-from pi5_st7735_evf.render import bgr_to_pil, to_evf_frame
+from pi5_st7735_evf.overlays import FpsMeter
 from pi5_st7735_evf.application import application_state, screen_for_state
 from pi5_st7735_evf.ui.screens import SCREEN_NAMES, render_screen
 from pi5_st7735_evf.x1301 import SignalState, X1301Client, X1301State
@@ -44,13 +44,13 @@ def main() -> int:
         from pathlib import Path
         output=Path(cfg.output or f"artifacts/ui/{cfg.screen}.png"); output.parent.mkdir(parents=True,exist_ok=True)
         render_screen(cfg.screen,cfg.width,cfg.height).save(output); print(output); return 0
-    client = X1301Client(cfg.state_file, cfg.status_command)
-    capture = CaptureController(fourcc=cfg.capture_fourcc)
+    client = X1301Client(cfg.state_file, cfg.status_command, cfg.diagnostic_command)
+    capture = CaptureController(fourcc=cfg.capture_fourcc, reconnect_delay=cfg.reconnect_delay)
     display = MockDisplayBackend(cfg.width, cfg.height) if cfg.mock or cfg.no_display else ST7735Backend(
         width=cfg.width, height=cfg.height, dc=cfg.dc, rst=cfg.rst, spi_port=cfg.spi_port,
         spi_device=cfg.spi_device, spi_hz=cfg.spi_hz, x_offset=cfg.x_offset,
         y_offset=cfg.y_offset, gpio_backend=cfg.gpio_backend)
-    overlays = set(cfg.overlays); meter = FpsMeter(); last_mode = ""
+    overlays = set(cfg.overlays); meter = FpsMeter()
     display.open()
     display.show(render_screen("boot", display.width, display.height))
     time.sleep(.8)
@@ -58,22 +58,21 @@ def main() -> int:
         while True:
             runtime = mock_state(cfg.mock_signal) if cfg.mock else client.read()
             if cfg.source and runtime.signal_state is SignalState.LOCKED:
-                runtime = X1301State(runtime.signal_state, cfg.source, runtime.media_node, runtime.subdev_node,
-                                     runtime.width or cfg.capture_width, runtime.height or cfg.capture_height,
-                                     runtime.fps or cfg.capture_fps, True)
+                runtime = replace(runtime, video_node=cfg.source,
+                                  width=runtime.width or cfg.capture_width,
+                                  height=runtime.height or cfg.capture_height,
+                                  fps=runtime.fps or cfg.capture_fps, configured=True)
             streaming = runtime.ready if cfg.mock else capture.sync(runtime)
             ok, frame = (True, mock_frame()) if cfg.mock and streaming else capture.read()
             if ok and frame is not None:
-                last_mode = f"{runtime.width}x{runtime.height}@{runtime.fps:g}"
-                rendered = to_evf_frame(frame, display.width, display.height, cfg.mode, cfg.rotation)
-                if "peaking" in overlays: rendered = apply_focus_peaking(rendered, cfg.peaking_threshold)
-                if "zebra" in overlays: rendered = apply_zebra(rendered, cfg.zebra_threshold)
                 image = render_screen("focus-assist" if "peaking" in overlays else "live",display.width,display.height,
-                                      frame=rendered,fps=meter.tick(),zebra="zebra" in overlays,
-                                      crosshair="crosshair" in overlays,mode=f"{runtime.height or frame.shape[0]}p{runtime.fps:g}")
+                                      frame=frame,fps=meter.tick(),zebra="zebra" in overlays,
+                                      crosshair="crosshair" in overlays,mode=f"{runtime.height or frame.shape[0]}p{runtime.fps:g}",
+                                      resize_mode=cfg.mode,rotation=cfg.rotation,
+                                      peaking_threshold=cfg.peaking_threshold,
+                                      zebra_threshold=cfg.zebra_threshold)
             else:
                 state=application_state(runtime,False); screen=screen_for_state(state)
-                if runtime.signal_state is SignalState.LOCKED and not streaming: screen="capture-error"
                 image=render_screen(screen,display.width,display.height,phase=int(time.monotonic()*3),runtime=runtime)
             display.show(image)
             if cfg.preview_window:

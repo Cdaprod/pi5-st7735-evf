@@ -4,13 +4,30 @@
 
 `pi5-x1301-bringup` owns TC358743/RP1 CFE discovery, EDID, signal and DV timing
 detection, media graph configuration, readiness, and its watcher. It publishes
-`/run/x1301/state.env`; `hdmi-status.sh --json` is the fallback. This repository
-never imports bring-up code and does not discover or hard-code device nodes.
+`/run/x1301/state.env` atomically. The stable installed
+`runtime-status.sh --json` cached-state command is the first fallback and the
+direct `hdmi-status.sh --json` query is diagnostic-only. This repository never
+imports bring-up code and does not discover or hard-code device nodes.
+
+The state environment uses `X1301_`-prefixed keys; JSON uses corresponding
+lower-case names while retaining `X1301_STATUS_SCHEMA`. Legacy unprefixed and
+`*_node` aliases remain accepted. Unknown additive fields are ignored. Pixel
+clock is transported in Hz and converted to MHz only for presentation.
+
+Only `LOCKED`, `configured=true`, and a nonempty video node is capture-ready.
+`DISCONNECTED`, `PRESENT_NO_SIGNAL`, `MODE_CHANGE`, `ERROR`, or unconfigured
+state immediately closes capture. Capture identity comprises video node,
+dimensions, FPS, pixel format, mode ID, and mode generation. Identity changes
+and read failures close capture; failed opens and reads retry on a nonblocking
+deadline using `EVF_RECONNECT_DELAY`.
 
 The production lifecycle is `x1301-edid.service` (load once), then
 `x1301-hdmi-watch.service` (watch/configure), then `pi5-st7735-evf.service`.
 The EVF wants and starts after the watcher, but source absence never prevents the
 display and UI from starting.
+
+The consumer contract depends on the X1301 hot-plug lifecycle work at
+https://github.com/Cdaprod/pi5-x1301-bringup/tree/codex/implement-hdmi-hot-plug-lifecycle.
 
 ## Video path
 
@@ -74,7 +91,8 @@ capture or UI logic. ST7789, DSI, and HDMI backends can implement the same
 ## Design goals
 
 - Keep HDMI pass-through independent from EVF software.
-- Make the capture node configurable.
+- Consume the producer-discovered capture node automatically; retain `--source`
+  only for diagnostics.
 - Make panel offsets configurable.
 - Use full-frame display transfers before attempting partial-update optimization.
 - Keep overlays optional because the panel has only 16,384 pixels.

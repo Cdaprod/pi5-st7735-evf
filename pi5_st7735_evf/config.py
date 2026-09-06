@@ -52,7 +52,8 @@ class EvfConfig:
     no_display: bool = False
     preview_window: bool = False
     state_file: str = "/run/x1301/state.env"
-    status_command: str = "hdmi-status.sh"
+    status_command: str = "/usr/local/lib/x1301/runtime-status.sh"
+    diagnostic_command: str = "/usr/local/lib/x1301/hdmi-status.sh"
     mock: bool = False
     mock_signal: str = "locked"
     screen: str = ""
@@ -98,7 +99,7 @@ def build_parser() -> argparse.ArgumentParser:
                    default=_env_int("EVF_ZEBRA_THRESHOLD", 245))
     p.add_argument("--label", default=_env_str("EVF_LABEL", "Z7"))
 
-    p.add_argument("--reconnect-delay", type=float, default=1.0)
+    p.add_argument("--reconnect-delay", type=float, default=_env_float("EVF_RECONNECT_DELAY", 1.0))
     p.add_argument("--no-display", action="store_true",
                    help="Do not open the ST7735. Useful for capture/render testing.")
     p.add_argument("--preview-window", action="store_true",
@@ -106,7 +107,10 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--list-devices", action="store_true",
                    help="Print candidate /dev/video* nodes and exit.")
     p.add_argument("--x1301-state-file", default=_env_str("X1301_STATE_FILE", "/run/x1301/state.env"))
-    p.add_argument("--x1301-status-command", default=_env_str("X1301_STATUS_COMMAND", "hdmi-status.sh"))
+    p.add_argument("--x1301-status-command", default=_env_str(
+        "X1301_STATUS_COMMAND", "/usr/local/lib/x1301/runtime-status.sh"))
+    p.add_argument("--x1301-diagnostic-command", default=_env_str(
+        "X1301_DIAGNOSTIC_COMMAND", "/usr/local/lib/x1301/hdmi-status.sh"))
     p.add_argument("--mock", action="store_true", help="Run without capture or Raspberry Pi hardware")
     p.add_argument("--screen", default="", help="Render one approved mock screen to PNG and exit")
     p.add_argument("--output", default="", help="PNG destination for --screen (default: artifacts/ui/<screen>.png)")
@@ -147,6 +151,7 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
         preview_window=args.preview_window,
         state_file=args.x1301_state_file,
         status_command=args.x1301_status_command,
+        diagnostic_command=args.x1301_diagnostic_command,
         mock=args.mock,
         mock_signal=args.mock_signal,
         screen=args.screen,

@@ -50,12 +50,13 @@ cd pi5-st7735-evf
 sudo ./scripts/install_pi.sh
 source .venv/bin/activate
 
-./tools/probe_capture.sh
-python evf.py --list-devices
-python evf.py --source /dev/video0 --mode fit
+python evf.py
 ```
 
-Normally the X1301 watcher supplies the video node. Development requires no Pi:
+The EVF starts before an HDMI source is present. The X1301 watcher supplies the
+current node, timing, format, and generation, and the EVF automatically closes
+and reopens capture across connects, disconnects, source replacement, and mode
+changes. Development requires no Pi:
 
 ```bash
 python evf.py --mock --mock-signal locked --preview-window
@@ -111,7 +112,26 @@ Then use the same values with `evf.py`.
 
 ## Capture test
 
-Find the video node:
+Normal production operation does not use `EVF_SOURCE` or `--source`. It reads
+the producer's atomically published `/run/x1301/state.env`, falling back first
+to `/usr/local/lib/x1301/runtime-status.sh --json` (cached watcher state) and
+then `/usr/local/lib/x1301/hdmi-status.sh --json` (direct diagnostics). Only
+`LOCKED` with `configured=true` and a nonempty video node is capture-ready.
+
+The producer states map to the approved screens: `DISCONNECTED` to no-signal,
+`PRESENT_NO_SIGNAL` to source-present, `MODE_CHANGE` to mode-change, and
+`ERROR` or a locked capture failure to capture-error. Failed capture opens and
+reads are retried without restarting the EVF.
+
+The required producer contract is maintained by
+[`pi5-x1301-bringup`](https://github.com/Cdaprod/pi5-x1301-bringup/tree/codex/implement-hdmi-hot-plug-lifecycle).
+Its environment uses `X1301_`-prefixed fields and its JSON uses corresponding
+lower-case names except `X1301_STATUS_SCHEMA`. Device nodes are discoveries,
+not stable identifiers.
+
+`--source` is retained only as an explicit diagnostic override:
+
+Find a diagnostic video node:
 
 ```bash
 v4l2-ctl --list-devices

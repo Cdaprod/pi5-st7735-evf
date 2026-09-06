@@ -18,7 +18,9 @@ def application_state(x1301, streaming: bool = False) -> ApplicationState:
     if x1301.signal_state is SignalState.DISCONNECTED: return ApplicationState.NO_SOURCE
     if x1301.signal_state is SignalState.MODE_CHANGE: return ApplicationState.MODE_CHANGE
     if x1301.signal_state is SignalState.PRESENT_NO_SIGNAL: return ApplicationState.SOURCE_PRESENT
-    return ApplicationState.STREAMING if streaming else ApplicationState.VIDEO_LOCKED
+    if not x1301.ready:
+        return ApplicationState.CAPTURE_ERROR
+    return ApplicationState.STREAMING if streaming else ApplicationState.CAPTURE_ERROR
 
 
 def screen_for_state(state: ApplicationState) -> str:
