@@ -92,3 +92,50 @@ class V4L2Capture:
         self.close()
         time.sleep(max(0.0, delay))
         self.open()
+
+
+class CaptureController:
+    """Keeps capture lifetime synchronized with the X1301 state contract."""
+
+    def __init__(self, factory=V4L2Capture, fourcc: str = "") -> None:
+        self.factory = factory
+        self.fourcc = fourcc
+        self.capture = None
+        self.key: tuple | None = None
+
+    @property
+    def streaming(self) -> bool:
+        return self.capture is not None
+
+    def sync(self, state) -> bool:
+        desired = (state.video_node, state.width, state.height, state.fps)
+        if not state.ready:
+            self.close()
+            return False
+        if self.capture is not None and desired == self.key:
+            return True
+        self.close()
+        candidate = self.factory(state.video_node, state.width or 1920, state.height or 1080,
+                                 state.fps or 30.0, self.fourcc)
+        try:
+            candidate.open()
+        except Exception:
+            candidate.close()
+            return False
+        self.capture, self.key = candidate, desired
+        return True
+
+    def read(self):
+        if self.capture is None:
+            return False, None
+        ok, frame = self.capture.read()
+        if not ok or frame is None:
+            self.close()
+            return False, None
+        return True, frame
+
+    def close(self) -> None:
+        if self.capture is not None:
+            self.capture.close()
+        self.capture = None
+        self.key = None

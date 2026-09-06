@@ -2,7 +2,10 @@ SHELL := /bin/bash
 PYTHON ?= python3
 VENV ?= .venv
 
-.PHONY: install test-display run probe lint zip clean
+.PHONY: install test test-display run probe lint zip clean
+
+test:
+	python -m unittest discover -s tests -v
 
 install:
 	sudo ./scripts/install_pi.sh

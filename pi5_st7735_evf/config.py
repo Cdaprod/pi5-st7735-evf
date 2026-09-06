@@ -22,7 +22,7 @@ def _env_str(name: str, default: str) -> str:
 
 @dataclass(slots=True)
 class EvfConfig:
-    source: str = "/dev/video0"
+    source: str = ""
     capture_width: int = 1920
     capture_height: int = 1080
     capture_fps: float = 30.0
@@ -32,6 +32,7 @@ class EvfConfig:
     height: int = 128
     mode: str = "fit"
     rotation: int = 0
+    display_backend: str = "st7735"
 
     spi_port: int = 0
     spi_device: int = 0
@@ -50,21 +51,29 @@ class EvfConfig:
     reconnect_delay: float = 1.0
     no_display: bool = False
     preview_window: bool = False
+    state_file: str = "/run/x1301/state.env"
+    status_command: str = "hdmi-status.sh"
+    mock: bool = False
+    mock_signal: str = "locked"
 
 
 def build_parser() -> argparse.ArgumentParser:
     p = argparse.ArgumentParser(
         description="Raspberry Pi 5 ST7735 EVF for HDMI-to-CSI-2 / V4L2 capture."
     )
-    p.add_argument("--source", default=_env_str("EVF_SOURCE", "/dev/video0"))
+    p.add_argument("--source", default=_env_str("EVF_SOURCE", ""),
+                   help="Manual capture override; normally supplied by X1301 state")
     p.add_argument("--capture-width", type=int, default=_env_int("EVF_CAPTURE_WIDTH", 1920))
     p.add_argument("--capture-height", type=int, default=_env_int("EVF_CAPTURE_HEIGHT", 1080))
     p.add_argument("--capture-fps", type=float, default=_env_float("EVF_CAPTURE_FPS", 30.0))
     p.add_argument("--fourcc", default=_env_str("EVF_CAPTURE_FOURCC", ""))
 
     p.add_argument("--mode", choices=("fit", "crop"), default=_env_str("EVF_MODE", "fit"))
+    p.add_argument("--display-backend", choices=("st7735",), default=_env_str("DISPLAY_BACKEND", "st7735"))
+    p.add_argument("--width", type=int, default=_env_int("DISPLAY_WIDTH", 128))
+    p.add_argument("--height", type=int, default=_env_int("DISPLAY_HEIGHT", 128))
     p.add_argument("--rotation", type=int, choices=(0, 90, 180, 270),
-                   default=_env_int("EVF_ROTATION", 0))
+                   default=_env_int("DISPLAY_ROTATION", _env_int("EVF_ROTATION", 0)))
 
     p.add_argument("--spi-port", type=int, default=_env_int("EVF_SPI_PORT", 0))
     p.add_argument("--spi-device", type=int, default=_env_int("EVF_SPI_DEVICE", 0))
@@ -94,6 +103,11 @@ def build_parser() -> argparse.ArgumentParser:
                    help="Open a desktop OpenCV preview in addition to the TFT.")
     p.add_argument("--list-devices", action="store_true",
                    help="Print candidate /dev/video* nodes and exit.")
+    p.add_argument("--x1301-state-file", default=_env_str("X1301_STATE_FILE", "/run/x1301/state.env"))
+    p.add_argument("--x1301-status-command", default=_env_str("X1301_STATUS_COMMAND", "hdmi-status.sh"))
+    p.add_argument("--mock", action="store_true", help="Run without capture or Raspberry Pi hardware")
+    p.add_argument("--mock-signal", choices=("locked", "disconnected", "present-no-signal", "mode-change", "error"),
+                   default="locked")
     return p
 
 
@@ -108,7 +122,10 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
         capture_fps=args.capture_fps,
         capture_fourcc=args.fourcc,
         mode=args.mode,
+        width=args.width,
+        height=args.height,
         rotation=args.rotation,
+        display_backend=args.display_backend,
         spi_port=args.spi_port,
         spi_device=args.spi_device,
         spi_hz=args.spi_hz,
@@ -124,4 +141,8 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
         reconnect_delay=args.reconnect_delay,
         no_display=args.no_display,
         preview_window=args.preview_window,
+        state_file=args.x1301_state_file,
+        status_command=args.x1301_status_command,
+        mock=args.mock,
+        mock_signal=args.mock_signal,
     )

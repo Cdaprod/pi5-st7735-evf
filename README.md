@@ -55,6 +55,15 @@ python evf.py --list-devices
 python evf.py --source /dev/video0 --mode fit
 ```
 
+Normally the X1301 watcher supplies the video node. Development requires no Pi:
+
+```bash
+python evf.py --mock --mock-signal locked --preview-window
+python evf.py --mock --mock-signal disconnected --preview-window
+python tools/mock_x1301_state.py --state locked --width 1920 --height 1080 --video /dev/video0
+python -m unittest discover -s tests -v
+```
+
 If the driver clone is not already present, `scripts/install_pi.sh` clones:
 
 ```text
@@ -204,6 +213,15 @@ sudo cp systemd/pi5-st7735-evf.service /etc/systemd/system/
 sudo systemctl daemon-reload
 sudo systemctl enable --now pi5-st7735-evf.service
 journalctl -u pi5-st7735-evf.service -f
+```
+
+Do not enable the unit until hardware validation is complete. To run it without
+making HDMI presence a startup dependency:
+
+```bash
+sudo systemctl start x1301-edid.service
+sudo systemctl start x1301-hdmi-watch.service
+sudo systemctl start pi5-st7735-evf.service
 ```
 
 Edit the service first if the repository is not located at `/home/pi/pi5-st7735-evf`.
