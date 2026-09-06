@@ -64,6 +64,26 @@ python tools/mock_x1301_state.py --state locked --width 1920 --height 1080 --vid
 python -m unittest discover -s tests -v
 ```
 
+Render the approved screens and exact-size inspection gallery without hardware:
+
+```bash
+python evf.py --mock --screen boot
+python evf.py --mock --screen no-signal
+python evf.py --mock --screen source-present
+python evf.py --mock --screen live
+python evf.py --mock --screen focus-assist
+python evf.py --mock --screen menu
+python evf.py --mock --screen focus-settings
+python evf.py --mock --screen system-info
+python evf.py --mock --screen capture-error
+python evf.py --mock --screen mode-change
+python evf.py --mock --screen shutdown
+python tools/render_ui_gallery.py --contact-sheet
+```
+
+PNGs are written under `artifacts/ui/`. Launch on the configured Raspberry Pi
+with `source .venv/bin/activate && python evf.py`.
+
 If the driver clone is not already present, `scripts/install_pi.sh` clones:
 
 ```text

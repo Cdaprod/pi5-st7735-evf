@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Run the EVF. Example: python evf.py --mock --mock-signal locked"""
+"""Run the EVF. Examples: python evf.py; python evf.py --mock --screen live"""
 from __future__ import annotations
 
 import sys
@@ -12,7 +12,8 @@ from pi5_st7735_evf.config import build_parser, from_args
 from pi5_st7735_evf.display import MockDisplayBackend, ST7735Backend
 from pi5_st7735_evf.overlays import FpsMeter, apply_focus_peaking, apply_zebra, compose_overlays
 from pi5_st7735_evf.render import bgr_to_pil, to_evf_frame
-from pi5_st7735_evf.ui.status import no_signal_screen
+from pi5_st7735_evf.application import application_state, screen_for_state
+from pi5_st7735_evf.ui.screens import SCREEN_NAMES, render_screen
 from pi5_st7735_evf.x1301 import SignalState, X1301Client, X1301State
 
 
@@ -35,6 +36,14 @@ def main() -> int:
     if args.list_devices:
         print("\n".join(list_video_devices()) or "No /dev/video* devices found."); return 0
     cfg = from_args(args)
+    if cfg.screen:
+        if not cfg.mock:
+            print("--screen requires --mock", file=sys.stderr); return 2
+        if cfg.screen not in SCREEN_NAMES:
+            print(f"unknown screen {cfg.screen!r}; choose: {', '.join(SCREEN_NAMES)}", file=sys.stderr); return 2
+        from pathlib import Path
+        output=Path(cfg.output or f"artifacts/ui/{cfg.screen}.png"); output.parent.mkdir(parents=True,exist_ok=True)
+        render_screen(cfg.screen,cfg.width,cfg.height).save(output); print(output); return 0
     client = X1301Client(cfg.state_file, cfg.status_command)
     capture = CaptureController(fourcc=cfg.capture_fourcc)
     display = MockDisplayBackend(cfg.width, cfg.height) if cfg.mock or cfg.no_display else ST7735Backend(
@@ -43,6 +52,8 @@ def main() -> int:
         y_offset=cfg.y_offset, gpio_backend=cfg.gpio_backend)
     overlays = set(cfg.overlays); meter = FpsMeter(); last_mode = ""
     display.open()
+    display.show(render_screen("boot", display.width, display.height))
+    time.sleep(.8)
     try:
         while True:
             runtime = mock_state(cfg.mock_signal) if cfg.mock else client.read()
@@ -57,15 +68,13 @@ def main() -> int:
                 rendered = to_evf_frame(frame, display.width, display.height, cfg.mode, cfg.rotation)
                 if "peaking" in overlays: rendered = apply_focus_peaking(rendered, cfg.peaking_threshold)
                 if "zebra" in overlays: rendered = apply_zebra(rendered, cfg.zebra_threshold)
-                image = compose_overlays(bgr_to_pil(rendered), rendered, overlays, fps=meter.tick(),
-                                         source_width=frame.shape[1], source_height=frame.shape[0], label=cfg.label)
+                image = render_screen("focus-assist" if "peaking" in overlays else "live",display.width,display.height,
+                                      frame=rendered,fps=meter.tick(),zebra="zebra" in overlays,
+                                      crosshair="crosshair" in overlays,mode=f"{runtime.height or frame.shape[0]}p{runtime.fps:g}")
             else:
-                details = {SignalState.DISCONNECTED: "HDMI disconnected",
-                           SignalState.PRESENT_NO_SIGNAL: "HDMI detected / waiting",
-                           SignalState.MODE_CHANGE: "Changing video mode",
-                           SignalState.ERROR: "X1301 error"}
-                image = no_signal_screen(display.width, display.height,
-                                         details.get(runtime.signal_state, "Waiting for capture"), last_mode)
+                state=application_state(runtime,False); screen=screen_for_state(state)
+                if runtime.signal_state is SignalState.LOCKED and not streaming: screen="capture-error"
+                image=render_screen(screen,display.width,display.height,phase=int(time.monotonic()*3),runtime=runtime)
             display.show(image)
             if cfg.preview_window:
                 cv2.imshow("Pi5 EVF", cv2.cvtColor(np.asarray(image), cv2.COLOR_RGB2BGR))
@@ -74,6 +83,8 @@ def main() -> int:
     except KeyboardInterrupt:
         return 0
     finally:
+        try: display.show(render_screen("shutdown",display.width,display.height)); time.sleep(.35)
+        except Exception: pass
         capture.close(); display.close()
         if cfg.preview_window: cv2.destroyAllWindows()
 

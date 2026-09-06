@@ -53,6 +53,9 @@ class X1301State:
     fps: float = 0.0
     configured: bool = False
     error: str | None = None
+    pixel_clock_mhz: float = 0.0
+    driver: str | None = None
+    rp1_cfe_detected: bool = False
 
     @property
     def ready(self) -> bool:
@@ -68,4 +71,7 @@ class X1301State:
             width=_integer(_value(data, "width")), height=_integer(_value(data, "height")),
             fps=_float(_value(data, "fps")), configured=_bool(_value(data, "configured")),
             error=_value(data, "error") or None,
+            pixel_clock_mhz=_float(_value(data, "pixel_clock_mhz", _value(data, "pixel_clock"))),
+            driver=_value(data, "driver") or None,
+            rp1_cfe_detected=_bool(_value(data, "rp1_cfe_detected", _value(data, "rp1_cfe"))),
         )

@@ -6,13 +6,14 @@ from pathlib import Path
 
 from PIL import Image
 
-from pi5_st7735_evf.application import ApplicationState, application_state
+from pi5_st7735_evf.application import ApplicationState, application_state, screen_for_state
 from pi5_st7735_evf.capture import CaptureController
 from pi5_st7735_evf.display import MockDisplayBackend
 from pi5_st7735_evf.input.controller import InputController
 from pi5_st7735_evf.input.events import InputEvent
 from pi5_st7735_evf.ui.menu import Action, Menu
 from pi5_st7735_evf.ui.status import no_signal_screen
+from pi5_st7735_evf.ui.screens import MENU_ITEMS, SCREEN_NAMES, render_screen
 from pi5_st7735_evf.x1301.client import X1301Client, parse_env
 from pi5_st7735_evf.x1301.state import SignalState, X1301State
 
@@ -52,6 +53,22 @@ class IntegrationTests(unittest.TestCase):
         self.assertEqual(application_state(state(SignalState.DISCONNECTED)), ApplicationState.NO_SOURCE)
         self.assertEqual(application_state(state(SignalState.PRESENT_NO_SIGNAL)), ApplicationState.SOURCE_PRESENT)
         self.assertEqual(no_signal_screen(128, 128).size, (128, 128))
+        self.assertEqual(application_state(state(SignalState.MODE_CHANGE)), ApplicationState.MODE_CHANGE)
+        self.assertEqual(screen_for_state(ApplicationState.VIDEO_LOCKED), "mode-change")
+
+    def test_every_approved_screen_renders_at_native_size(self):
+        for name in SCREEN_NAMES:
+            with self.subTest(screen=name):
+                image = render_screen(name)
+                self.assertEqual(image.size, (128, 128))
+                self.assertEqual(image.mode, "RGB")
+
+    def test_menu_selection_is_clamped_and_focus_preview_updates(self):
+        self.assertEqual(render_screen("menu", selected=-50).size, (128, 128))
+        self.assertEqual(render_screen("menu", selected=len(MENU_ITEMS)+50).size, (128, 128))
+        low = render_screen("focus-settings", threshold=2, thickness=1)
+        high = render_screen("focus-settings", threshold=9, thickness=3)
+        self.assertNotEqual(low.tobytes(), high.tobytes())
 
     def test_capture_open_mode_change_reopen_and_failure(self):
         controller = CaptureController(factory=FakeCapture)

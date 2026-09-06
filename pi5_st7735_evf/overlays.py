@@ -56,12 +56,14 @@ def read_pi_temp_c() -> float | None:
         return None
 
 
-def apply_focus_peaking(frame_bgr: np.ndarray, threshold: int = 90) -> np.ndarray:
+def apply_focus_peaking(frame_bgr: np.ndarray, threshold: int = 90, thickness: int = 1) -> np.ndarray:
     """Overlay high-frequency edges in red."""
     gray = cv2.cvtColor(frame_bgr, cv2.COLOR_BGR2GRAY)
     lap = cv2.Laplacian(gray, cv2.CV_16S, ksize=3)
     mag = cv2.convertScaleAbs(lap)
     mask = mag >= int(threshold)
+    if thickness > 1:
+        mask = cv2.dilate(mask.astype(np.uint8), np.ones((min(thickness, 3),) * 2, np.uint8)) > 0
     out = frame_bgr.copy()
     out[mask] = (0, 0, 255)
     return out

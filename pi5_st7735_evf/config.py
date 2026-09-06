@@ -55,6 +55,8 @@ class EvfConfig:
     status_command: str = "hdmi-status.sh"
     mock: bool = False
     mock_signal: str = "locked"
+    screen: str = ""
+    output: str = ""
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -106,6 +108,8 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--x1301-state-file", default=_env_str("X1301_STATE_FILE", "/run/x1301/state.env"))
     p.add_argument("--x1301-status-command", default=_env_str("X1301_STATUS_COMMAND", "hdmi-status.sh"))
     p.add_argument("--mock", action="store_true", help="Run without capture or Raspberry Pi hardware")
+    p.add_argument("--screen", default="", help="Render one approved mock screen to PNG and exit")
+    p.add_argument("--output", default="", help="PNG destination for --screen (default: artifacts/ui/<screen>.png)")
     p.add_argument("--mock-signal", choices=("locked", "disconnected", "present-no-signal", "mode-change", "error"),
                    default="locked")
     return p
@@ -145,4 +149,6 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
         status_command=args.x1301_status_command,
         mock=args.mock,
         mock_signal=args.mock_signal,
+        screen=args.screen,
+        output=args.output,
     )
