@@ -1,5 +1,6 @@
 # EVF integration ledger
 
+- [x] Keep producer configuration authoritative when applying the diagnostic `--source` node override.
 - [x] Consume the X1301 hot-plug watcher contract, mode identity/generation, resilient nonblocking capture retries, producer state screens, and installed status fallbacks.
 - [x] Add hardware-free lifecycle, parsing compatibility, malformed-state, capture failure/recovery, and native UI coverage.
 - [ ] Validate the X1301 hot-plug lifecycle end-to-end after the authoritative bring-up branch is merged and installed on Raspberry Pi 5 hardware.

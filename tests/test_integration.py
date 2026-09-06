@@ -3,9 +3,12 @@ import subprocess
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
+import numpy as np
 from PIL import Image
 
+from evf import apply_source_override
 from pi5_st7735_evf.application import ApplicationState, application_state, screen_for_state
 from pi5_st7735_evf.capture import CaptureController
 from pi5_st7735_evf.display import MockDisplayBackend
@@ -60,7 +63,7 @@ def state(signal=SignalState.LOCKED, *, video="/dev/video0", width=1920, height=
         configured = signal is SignalState.LOCKED
     if mode_id is None and signal is SignalState.LOCKED:
         mode_id = f"{width}x{height}@{fps}/148500000Hz/{pixel_format}"
-    return X1301State(signal_state=signal, video_node=video, media_node="/dev/media0",
+    return X1301State(status_schema=1, signal_state=signal, video_node=video, media_node="/dev/media0",
                       subdev_node="/dev/v4l-subdev0", width=width, height=height,
                       fps=fps, configured=configured, power_present=True,
                       timings_locked=signal in (SignalState.LOCKED, SignalState.MODE_CHANGE),
@@ -73,6 +76,7 @@ class X1301ParsingTests(unittest.TestCase):
         current = X1301Client(str(FIXTURES / "locked-1080p60.env"),
                               status_command="", diagnostic_command="").read()
         self.assertTrue(current.ready)
+        self.assertEqual(current.status_schema, 1)
         self.assertEqual(current.video_node, "/dev/video14")
         self.assertEqual(current.pixel_clock_hz, 148_500_000)
         self.assertEqual(current.pixel_clock_mhz, 148.5)
@@ -123,6 +127,13 @@ class X1301ParsingTests(unittest.TestCase):
                                  "/usr/local/lib/x1301/hdmi-status.sh"])
         self.assertTrue(current.timings_locked)
         self.assertFalse(current.ready)
+
+    def test_source_override_never_promotes_unconfigured_diagnostic_state(self):
+        diagnostic = state(configured=False, video="")
+        overridden = apply_source_override(diagnostic, "/dev/video99", 1280, 720, 30)
+        self.assertEqual(overridden.video_node, "/dev/video99")
+        self.assertFalse(overridden.configured)
+        self.assertFalse(overridden.ready)
 
     def test_missing_and_temporarily_malformed_state_are_safe(self):
         calls = []
@@ -194,6 +205,7 @@ class CaptureLifecycleTests(unittest.TestCase):
                                pixel_format="BGR3")
         self.assertTrue(self.controller.sync(changed_format))
         self.assertTrue(second.closed)
+        self.assertEqual(FakeCapture.instances[-1].args[-1], "")
 
     def test_unconfigured_or_non_ready_state_closes_immediately(self):
         for signal in (SignalState.PRESENT_NO_SIGNAL, SignalState.MODE_CHANGE,
@@ -246,6 +258,23 @@ class ApplicationAndUiTests(unittest.TestCase):
                 image = render_screen(name)
                 self.assertEqual(image.size, (128, 128))
                 self.assertEqual(image.mode, "RGB")
+
+    def test_live_renderer_transforms_and_analysis_run_once(self):
+        raw = np.zeros((720, 1280, 3), dtype=np.uint8)
+        viewport = np.zeros((84, 128, 3), dtype=np.uint8)
+        with patch("pi5_st7735_evf.ui.screens.live_view.to_evf_frame",
+                   return_value=viewport) as resize, \
+             patch("pi5_st7735_evf.ui.screens.live_view.apply_focus_peaking",
+                   side_effect=lambda frame, *_args, **_kwargs: frame) as peaking, \
+             patch("pi5_st7735_evf.ui.screens.live_view.apply_zebra",
+                   side_effect=lambda frame, *_args, **_kwargs: frame) as zebra:
+            image = render_screen("focus-assist", frame=raw, zebra=True,
+                                  resize_mode="fit", rotation=90,
+                                  peaking_threshold=101, zebra_threshold=231)
+        self.assertEqual(image.size, (128, 128))
+        resize.assert_called_once_with(raw, 128, 84, "fit", 90)
+        peaking.assert_called_once()
+        zebra.assert_called_once()
 
     def test_menu_selection_is_clamped_and_focus_preview_updates(self):
         self.assertEqual(render_screen("menu", selected=-50).size, (128, 128))

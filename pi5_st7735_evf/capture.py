@@ -124,7 +124,7 @@ class CaptureController:
         if desired == self._retry_key and self._clock() < self._retry_at:
             return False
         candidate = self.factory(state.video_node, state.width or 1920, state.height or 1080,
-                                 state.fps or 30.0, self.fourcc or state.pixel_format or "")
+                                 state.fps or 30.0, self.fourcc)
         try:
             candidate.open()
         except Exception:

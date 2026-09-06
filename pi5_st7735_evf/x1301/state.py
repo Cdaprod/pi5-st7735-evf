@@ -69,6 +69,7 @@ class X1301State:
     driver: str | None = None
     rp1_cfe_detected: bool = False
     last_change: str | None = None
+    status_schema: int = 0
 
     @property
     def pixel_clock_mhz(self) -> float:
@@ -86,6 +87,7 @@ class X1301State:
             # Compatibility with the old EVF-specific MHz field only.
             pixel_clock_hz = int(_float(_value(data, "pixel_clock_mhz")) * 1_000_000)
         return cls(
+            status_schema=_integer(_value(data, "status_schema")),
             signal_state=SignalState.parse(_value(data, "signal_state", "state")),
             video_node=_value(data, "video", "video_node") or None,
             media_node=_value(data, "media", "media_node") or None,

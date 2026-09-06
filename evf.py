@@ -31,6 +31,17 @@ def mock_frame(width: int = 640, height: int = 360) -> np.ndarray:
     return frame
 
 
+def apply_source_override(runtime: X1301State, source: str, width: int,
+                          height: int, fps: float) -> X1301State:
+    """Override only capture addressing; producer readiness remains authoritative."""
+    if not source:
+        return runtime
+    return replace(runtime, video_node=source,
+                   width=runtime.width or width,
+                   height=runtime.height or height,
+                   fps=runtime.fps or fps)
+
+
 def main() -> int:
     args = build_parser().parse_args()
     if args.list_devices:
@@ -57,11 +68,9 @@ def main() -> int:
     try:
         while True:
             runtime = mock_state(cfg.mock_signal) if cfg.mock else client.read()
-            if cfg.source and runtime.signal_state is SignalState.LOCKED:
-                runtime = replace(runtime, video_node=cfg.source,
-                                  width=runtime.width or cfg.capture_width,
-                                  height=runtime.height or cfg.capture_height,
-                                  fps=runtime.fps or cfg.capture_fps, configured=True)
+            if cfg.source:
+                runtime = apply_source_override(runtime, cfg.source, cfg.capture_width,
+                                                cfg.capture_height, cfg.capture_fps)
             streaming = runtime.ready if cfg.mock else capture.sync(runtime)
             ok, frame = (True, mock_frame()) if cfg.mock and streaming else capture.read()
             if ok and frame is not None:

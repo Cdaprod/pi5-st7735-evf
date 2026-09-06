@@ -129,7 +129,8 @@ Its environment uses `X1301_`-prefixed fields and its JSON uses corresponding
 lower-case names except `X1301_STATUS_SCHEMA`. Device nodes are discoveries,
 not stable identifiers.
 
-`--source` is retained only as an explicit diagnostic override:
+`--source` is retained only as an explicit diagnostic node override. It never
+promotes an unconfigured producer state to capture-ready:
 
 Find a diagnostic video node:
 

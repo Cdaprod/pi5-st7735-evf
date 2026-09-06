@@ -20,6 +20,8 @@ state immediately closes capture. Capture identity comprises video node,
 dimensions, FPS, pixel format, mode ID, and mode generation. Identity changes
 and read failures close capture; failed opens and reads retry on a nonblocking
 deadline using `EVF_RECONNECT_DELAY`.
+The diagnostic `--source` option can replace the published node but cannot
+override the producer's signal state or `configured` readiness decision.
 
 The production lifecycle is `x1301-edid.service` (load once), then
 `x1301-hdmi-watch.service` (watch/configure), then `pi5-st7735-evf.service`.
