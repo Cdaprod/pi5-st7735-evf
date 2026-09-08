@@ -1,5 +1,8 @@
 # EVF integration ledger
 
+- [x] Add semantic UI actions, persistent navigation, optional GPIO buttons, a latest-frame hub, and an isolated MJPEG/status/control web server.
+- [x] Add hardware-free navigation, action, web endpoint, hot-plug publication, and latest-frame tests.
+- [ ] Validate LAN browser streaming and configured button GPIOs on Raspberry Pi 5 hardware.
 - [x] Keep producer configuration authoritative when applying the diagnostic `--source` node override.
 - [x] Consume the X1301 hot-plug watcher contract, mode identity/generation, resilient nonblocking capture retries, producer state screens, and installed status fallbacks.
 - [x] Add hardware-free lifecycle, parsing compatibility, malformed-state, capture failure/recovery, and native UI coverage.

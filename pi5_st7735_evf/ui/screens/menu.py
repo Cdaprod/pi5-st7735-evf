@@ -17,8 +17,8 @@ def _rows(d,items,selected,width,start=20,row_height=15):
         else: prefix="  "
         row_font=FONT_TINY if len(label)>15 else FONT_SMALL
         d.text((3,y+2),prefix+label,font=row_font,fill=WHITE); d.text((width-5,y+2),value,font=FONT_SMALL,fill=WHITE,anchor="ra")
-def menu_screen(width=128,height=128,selected=0,**_):
-    selected=max(0,min(int(selected),len(MENU_ITEMS)-1)); im,d=canvas(width,height); header(d,"MENU","gear",draw_icon,width); _rows(d,MENU_ITEMS,selected,width); return im
+def menu_screen(width=128,height=128,selected=0,items=MENU_ITEMS,**_):
+    selected=max(0,min(int(selected),len(items)-1)); im,d=canvas(width,height); header(d,"MENU","gear",draw_icon,width); _rows(d,items,selected,width); return im
 def focus_settings_screen(width=128,height=128,selected=0,enabled=True,color="Red",threshold=5,thickness=2,frame=None,**_):
     selected=max(0,min(int(selected),3)); im,d=canvas(width,height); header(d,"FOCUS PEAKING","gear",draw_icon,width)
     values=[("Enable","ON" if enabled else "OFF"),("Color",color),("Threshold",str(threshold)),("Thickness",str(thickness))]

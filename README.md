@@ -7,6 +7,8 @@ A repository-ready Raspberry Pi 5 electronic viewfinder (EVF) prototype that:
 3. Scales or center-crops the incoming video for a 1.44-inch 128×128 ST7735 SPI TFT.
 4. Draws configurable EVF overlays.
 5. Pushes each composed PIL frame through the `cskau/Python_ST7735` driver.
+6. Optionally publishes the existing capture frame, exact TFT image, status, and
+   semantic controls to a dependency-free LAN browser monitor.
 
 The code intentionally keeps the display output path independent from the capture board's HDMI pass-through.
 
@@ -61,6 +63,7 @@ changes. Development requires no Pi:
 ```bash
 python evf.py --mock --mock-signal locked --preview-window
 python evf.py --mock --mock-signal disconnected --preview-window
+python evf.py --mock --mock-signal locked --web --no-display
 python tools/mock_x1301_state.py --state locked --width 1920 --height 1080 --video /dev/video0
 python -m unittest discover -s tests -v
 ```
@@ -244,6 +247,90 @@ python evf.py
 ```
 
 CLI arguments override environment variables.
+
+## Browser monitor and control
+
+Web output is opt-in and never owns or opens a V4L2 device. Enable it with
+`--web` or `EVF_WEB=1`; it listens on all interfaces at port 8080 by default:
+
+```bash
+python evf.py --mock --mock-signal locked --web --no-display
+# Open http://127.0.0.1:8080/
+```
+
+The responsive dark page contains the full captured video (not the 128×128
+render), source and runtime status, active overlays, an exact mirror of the last
+Pillow image sent to `display.show()`, and controls. Available endpoints are:
+
+- `GET /` — browser monitor.
+- `GET /video.mjpg` (also `/video`) — reconnect-safe MJPEG stream.
+- `GET /ui.png` — exact latest native UI image.
+- `GET /api/status` — read-only JSON runtime status.
+- `POST /api/action` — JSON such as `{"action":"MENU"}`.
+
+Only named `UIAction` enum values are accepted by the action endpoint. It has no
+shell, filesystem, or evaluation facility. Browser disconnection is normal and
+does not stop capture or native output. Set `EVF_WEB_HOST` and `EVF_WEB_PORT` or
+use `--web-host` and `--web-port` to change the listener.
+
+## Input abstraction and GPIO buttons
+
+Physical identity is separate from application meaning:
+
+```text
+physical button -> InputEvent -> configurable InputMapper -> UIAction
+                                                       |
+browser POST ------------------------------------------+
+                                                       v
+                                                NavigationState
+```
+
+The default mapping uses F1–F4 for focus assist, zebra, crosshair, and histogram;
+Menu opens the menu; and encoder left/right/press/long-press mean previous, next,
+select, and back. Navigation receives only `UIAction`, so another backend can add
+a joypad without changing screens. The optional lgpio backend uses active-low
+inputs, pull-ups, and debounce. Configure any subset; with every variable unset,
+no button device is opened:
+
+```bash
+EVF_BUTTON_F1_GPIO=5
+EVF_BUTTON_MENU_GPIO=6
+EVF_BUTTON_DEBOUNCE=0.05
+```
+
+## Dual-output and hot-plug architecture
+
+```text
+X1301 -> CaptureController --+--> native Pillow renderer --> ST7735
+                             |
+                             +--> latest-frame/state hub --> HTTP/MJPEG --> browser
+
+buttons -> InputEvent -> UIAction --+--> NavigationState --> native renderer
+browser POST ---------> UIAction ---+
+```
+
+The hub holds exactly one source-frame reference and one encoded native image;
+newest publication wins, so it is not an unbounded video queue. The application
+loop remains the sole capture owner and publishes completed work to the hub.
+HTTP runs in an isolated thread and only queues actions for the application loop.
+
+No HDMI source is a supported steady state: both outputs show `NO SIGNAL`, while
+the process, native display, and HTTP server remain active. Producer mode changes
+and capture read/open failures close and retry through `CaptureController`.
+Reconnect supplies a newly discovered producer-authoritative video node and both
+outputs automatically return to live video. Opening menus does not pause or own
+capture; if signal state changes while a menu is open, Back returns to the new
+runtime screen rather than blindly returning to live.
+
+### Browser API checks
+
+```bash
+curl -f http://127.0.0.1:8080/
+curl -f http://127.0.0.1:8080/api/status
+curl -f http://127.0.0.1:8080/ui.png -o /tmp/evf-ui.png
+curl -f -X POST -H 'Content-Type: application/json' \
+  -d '{"action":"MENU"}' http://127.0.0.1:8080/api/action
+```
 
 ## Systemd
 
