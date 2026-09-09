@@ -20,6 +20,11 @@ def _env_str(name: str, default: str) -> str:
     return default if value is None else value
 
 
+def _env_bool(name: str, default: bool = False) -> bool:
+    value = os.getenv(name)
+    return default if value is None else value.strip().lower() in ("1", "true", "yes", "on")
+
+
 @dataclass(slots=True)
 class EvfConfig:
     source: str = ""
@@ -58,6 +63,11 @@ class EvfConfig:
     mock_signal: str = "locked"
     screen: str = ""
     output: str = ""
+    web: bool = False
+    web_host: str = "0.0.0.0"
+    web_port: int = 8080
+    button_pins: tuple[tuple[str, int], ...] = ()
+    button_debounce: float = .05
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -100,7 +110,7 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--label", default=_env_str("EVF_LABEL", "Z7"))
 
     p.add_argument("--reconnect-delay", type=float, default=_env_float("EVF_RECONNECT_DELAY", 1.0))
-    p.add_argument("--no-display", action="store_true",
+    p.add_argument("--no-display", action="store_true", default=_env_bool("EVF_NO_DISPLAY"),
                    help="Do not open the ST7735. Useful for capture/render testing.")
     p.add_argument("--preview-window", action="store_true",
                    help="Open a desktop OpenCV preview in addition to the TFT.")
@@ -115,7 +125,12 @@ def build_parser() -> argparse.ArgumentParser:
     p.add_argument("--screen", default="", help="Render one approved mock screen to PNG and exit")
     p.add_argument("--output", default="", help="PNG destination for --screen (default: artifacts/ui/<screen>.png)")
     p.add_argument("--mock-signal", choices=("locked", "disconnected", "present-no-signal", "mode-change", "error"),
-                   default="locked")
+                   default=_env_str("EVF_MOCK_SIGNAL", "locked"))
+    p.add_argument("--web", action="store_true", default=_env_bool("EVF_WEB"),
+                   help="Enable the optional LAN monitor and control server")
+    p.add_argument("--web-host", default=_env_str("EVF_WEB_HOST", "0.0.0.0"))
+    p.add_argument("--web-port", type=int, default=_env_int("EVF_WEB_PORT", 8080))
+    p.add_argument("--button-debounce", type=float, default=_env_float("EVF_BUTTON_DEBOUNCE", .05))
     return p
 
 
@@ -123,6 +138,8 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
     overlays = tuple(
         x.strip().lower() for x in args.overlay.split(",") if x.strip()
     )
+    button_pins = tuple((name, int(value)) for name in ("F1", "F2", "F3", "F4", "MENU")
+                        if (value := os.getenv(f"EVF_BUTTON_{name}_GPIO", "")).strip())
     return EvfConfig(
         source=args.source,
         capture_width=args.capture_width,
@@ -156,4 +173,9 @@ def from_args(args: argparse.Namespace) -> EvfConfig:
         mock_signal=args.mock_signal,
         screen=args.screen,
         output=args.output,
+        web=args.web,
+        web_host=args.web_host,
+        web_port=args.web_port,
+        button_pins=button_pins,
+        button_debounce=args.button_debounce,
     )
