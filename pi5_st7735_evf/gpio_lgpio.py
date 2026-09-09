@@ -10,7 +10,7 @@ class LGPIOCompat:
     output(), set_high(), and set_low() are required by that driver.
     """
 
-    def __init__(self, chip: int = 0) -> None:
+    def __init__(self, chip: int = 15) -> None:
         self._handle = lgpio.gpiochip_open(chip)
         self._claimed: set[int] = set()
 
