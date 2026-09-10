@@ -4,6 +4,8 @@ from PIL import Image,ImageDraw
 from ...overlays import apply_focus_peaking
 from ...render import resize_crop
 from ..icons import draw_icon
+from ..context import RenderContext
+from ..scenes import render_menu
 from ..theme import *
 from .common import canvas,header
 from .live_view import live_view_screen,sample_frame
@@ -18,7 +20,7 @@ def _rows(d,items,selected,width,start=20,row_height=15):
         row_font=FONT_TINY if len(label)>15 else FONT_SMALL
         d.text((3,y+2),prefix+label,font=row_font,fill=WHITE); d.text((width-5,y+2),value,font=FONT_SMALL,fill=WHITE,anchor="ra")
 def menu_screen(width=128,height=128,selected=0,items=MENU_ITEMS,**_):
-    selected=max(0,min(int(selected),len(items)-1)); im,d=canvas(width,height); header(d,"MENU","gear",draw_icon,width); _rows(d,items,selected,width); return im
+    return render_menu(RenderContext.from_kwargs(width, height, **_), items, selected)
 def focus_settings_screen(width=128,height=128,selected=0,enabled=True,color="Red",threshold=5,thickness=2,frame=None,**_):
     selected=max(0,min(int(selected),3)); im,d=canvas(width,height); header(d,"FOCUS PEAKING","gear",draw_icon,width)
     values=[("Enable","ON" if enabled else "OFF"),("Color",color),("Threshold",str(threshold)),("Thickness",str(thickness))]

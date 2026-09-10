@@ -1,5 +1,7 @@
 # EVF integration ledger
 
+- [x] Add reusable scene context/widgets and migrate boot, source-present, and menu with hardware-free previews and focused tests.
+- [ ] Migrate focus-settings, system-info, live HUD, capture-error, mode-change, and shutdown onto the scene/widget foundation.
 - [x] Add semantic UI actions, persistent navigation, optional GPIO buttons, a latest-frame hub, and an isolated MJPEG/status/control web server.
 - [x] Add hardware-free navigation, action, web endpoint, hot-plug publication, and latest-frame tests.
 - [ ] Validate LAN browser streaming and configured button GPIOs on Raspberry Pi 5 hardware.
