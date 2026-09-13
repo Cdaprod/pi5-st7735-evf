@@ -17,7 +17,6 @@ sudo apt-get install -y \
   python3-spidev \
   python3-lgpio \
   v4l-utils \
-  media-ctl \
   build-essential
 
 # Enable SPI if raspi-config exists.
@@ -28,7 +27,8 @@ fi
 python3 -m venv --system-site-packages .venv
 source .venv/bin/activate
 
-python -m pip install --upgrade pip setuptools wheel
+python -m pip install --upgrade pip wheel
+python -m pip install 'setuptools<81'
 python -m pip install Adafruit-GPIO
 
 mkdir -p vendor
@@ -39,7 +39,7 @@ else
   git -C vendor/Python_ST7735 pull --ff-only
 fi
 
-python -m pip install -e vendor/Python_ST7735
+python -m pip install --no-build-isolation -e vendor/Python_ST7735
 
 echo
 echo "Installed."
