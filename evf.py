@@ -119,7 +119,9 @@ def main() -> int:
                                       zebra_threshold=cfg.zebra_threshold)
             else:
                 screen = navigation.current_screen
-                kwargs = {"phase": int(time.monotonic()*3), "runtime": runtime}
+                kwargs = {"phase": int(time.monotonic()*3), "runtime": runtime,
+                          "navigation": navigation, "fps": measured_fps,
+                          "application_state": state}
                 if screen == "menu":
                     enabled = (navigation.focus_assist_enabled, True, navigation.zebra_enabled,
                                navigation.crosshair_enabled, navigation.histogram_enabled)

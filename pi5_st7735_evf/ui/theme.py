@@ -6,6 +6,19 @@ from PIL import ImageFont
 BLACK=(0,0,0); WHITE=(245,245,245); GRAY=(105,110,114); DARK_GRAY=(38,42,44)
 GREEN=(25,225,91); YELLOW=(255,213,48); RED=(250,45,58); BLUE=(12,108,232)
 
+# Semantic names used by scene/widget renderers.  Keep the legacy constants above
+# for screens that have not migrated yet.
+BACKGROUND = BLACK
+FOREGROUND = WHITE
+MUTED = GRAY
+PANEL = DARK_GRAY
+ACCENT = (55, 169, 238)
+SUCCESS = GREEN
+WARNING = YELLOW
+ERROR = RED
+SPACING = 4
+LINE_WIDTH = 1
+
 @lru_cache(maxsize=None)
 def font(size: int, bold: bool=False):
     names = ("DejaVuSans-Bold.ttf", "DejaVuSans.ttf") if bold else ("DejaVuSans.ttf", "DejaVuSans-Bold.ttf")

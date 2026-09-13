@@ -61,7 +61,7 @@ class ST7735Display:
     height: int = 128
     dc: int = 24
     rst: int = 25
-    spi_port: int = 10
+    spi_port: int = 0
     spi_device: int = 0
     spi_hz: int = 16_000_000
     x_offset: int = 0

@@ -53,17 +53,24 @@ class V4L2Capture:
             self.close()
             raise RuntimeError(f"Unable to open capture source: {self.source}")
 
-        # The X1301 producer owns the V4L2/media graph configuration.
-        # The EVF only consumes the already configured capture node.
-        #
-        # Do not set FOURCC, width, height, or FPS here. In particular,
-        # HDMI timing comes from TC358743 and is published through the
-        # X1301 runtime state; it is not webcam-style FPS negotiation.
+        # Request minimal queueing for lowest practical preview latency.
         self.cap.set(cv2.CAP_PROP_BUFFERSIZE, 1)
 
-        self.stats.width = self.width
-        self.stats.height = self.height
-        self.stats.reported_fps = self.fps
+        if self.fourcc:
+            if len(self.fourcc) != 4:
+                raise ValueError("--fourcc must be exactly four characters")
+            self.cap.set(
+                cv2.CAP_PROP_FOURCC,
+                cv2.VideoWriter_fourcc(*self.fourcc),
+            )
+
+        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+
+        self.stats.width = int(self.cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        self.stats.height = int(self.cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        self.stats.reported_fps = float(self.cap.get(cv2.CAP_PROP_FPS))
 
     def read(self) -> tuple[bool, Optional[np.ndarray]]:
         if self.cap is None:

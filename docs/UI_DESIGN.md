@@ -17,6 +17,12 @@ set contains camera/video, connected and disconnected displays, gear,
 information, warning, mode-change arrows, power, battery, and signal status. No
 external icon package or web asset is required.
 
+Boot, source-present, and menu now use the scene layer in `ui/scenes`, with
+stateless primitives in `ui/widgets`.  `RenderContext` carries phase and live
+runtime/navigation references into scenes without taking ownership of them.
+The compatibility `render_screen` dispatcher still produces the one RGB image
+used by both the display backend and browser hub.
+
 ## Native layout
 
 Live View reserves pixels 0–15 for status, 16–99 for the source image, and
